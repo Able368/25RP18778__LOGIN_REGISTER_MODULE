@@ -4,6 +4,25 @@ require_once 'config.php';
 $errors = [];
 $success = false;
 
+// Ensure the users table exists (safe to run multiple times)
+try {
+    $createSql = "
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      fname VARCHAR(100) NOT NULL,
+      lname VARCHAR(100) NOT NULL,
+      genda VARCHAR(20),
+      email VARCHAR(150) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ";
+    $pdo->exec($createSql);
+} catch (PDOException $e) {
+    // If table creation fails, stop and show a friendly message
+    die("Database error (creating table): " . htmlspecialchars($e->getMessage()));
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Collect form input
@@ -35,30 +54,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
-        // Check if email already exists
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
-        $stmt->execute(['email' => $email]);
+        try {
+            // Use the same table name for SELECT and INSERT (users)
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
+            $stmt->execute([':email' => $email]);
 
-        if ($stmt->fetch()) {
-            $errors[] = "Email is already registered.";
-        } else {
-            // Insert new user
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+            if ($stmt->fetch()) {
+                $errors[] = "Email is already registered.";
+            } else {
+                // Insert new user
+                $hash = password_hash($password, PASSWORD_DEFAULT);
 
-            $ins = $pdo->prepare("
-                INSERT INTO users (fname, lname, genda, email, password)
-                VALUES (:fname, :lname, :genda, :email, :password)
-            ");
+                $ins = $pdo->prepare("
+                    INSERT INTO users (fname, lname, genda, email, password)
+                    VALUES (:fname, :lname, :genda, :email, :password)
+                ");
 
-            $ins->execute([
-                ':fname' => $fname,
-                ':lname' => $lname,
-                ':genda' => $genda,
-                ':email' => $email,
-                ':password' => $hash
-            ]);
+                $ins->execute([
+                    ':fname' => $fname,
+                    ':lname' => $lname,
+                    ':genda' => $genda,
+                    ':email' => $email,
+                    ':password' => $hash
+                ]);
 
-            $success = true;
+                $success = true;
+            }
+        } catch (PDOException $e) {
+            // Friendly DB error message (don't reveal too much in production)
+            $errors[] = "Database error: " . htmlspecialchars($e->getMessage());
         }
     }
 }
