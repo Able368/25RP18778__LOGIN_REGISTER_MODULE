@@ -1,0 +1,43 @@
+services:
+  25rp18778_php:
+    build: .
+    container_name: 25rp18778_php
+    ports:
+      - "8080:80"
+    depends_on:
+      - 25rp18778_php_db
+    environment:
+      - DB_HOST=25rp18778_php_db
+      - DB_NAME=25rp18778_student_db
+      - DB_USER=25rp18778-user
+      - DB_PASS=25rp18778-pass
+    volumes:
+      - ./src:/var/www/html
+
+  25rp18778_php_db:
+    image: mysql:8.0
+    container_name: 25rp18778_php_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: 25rp18778_student_db
+      MYSQL_USER: 25rp18778-user
+      MYSQL_PASSWORD: 25rp18778-pass
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3308:3306"
+
+  25rp18778_admin:
+    image: phpmyadmin/phpmyadmin
+    container_name: 25rp18778_php_admin
+    depends_on:
+      - 25rp18778_php_db
+    environment:
+      PMA_HOST: 25rp18778_php_db
+      PMA_PORT: 3306
+    ports:
+      - "8081:80"
+
+volumes:
+  db_data:
